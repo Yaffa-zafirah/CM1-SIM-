@@ -1,0 +1,189 @@
+---
+title: "SIM_CM1_C_M0725022"
+author: "Yaffa Zafirah Aswinda | M0725022 | Kelas C"
+date: "2026-05-23"
+output: 
+html_document:
+
+---
+<style>
+
+    body {
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+        color: #334155;
+        background-color: #f8fafc;
+        padding: 40px 20px;
+    }
+    h1 {
+        color: #1e293b;
+        font-size: 28pt;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    h2 {
+        color: #0f172a;
+        font-size: 18pt;
+        font-weight: 600;
+        border-left: 5px solid #3b82f6;
+        padding-left: 12px;
+        margin-top: 40px;
+    }
+    .math-block {
+        background-color: #f1f5f9;
+        padding: 16px;
+        border-radius: 8px;
+        font-family: 'Times New Roman', serif;
+        font-size: 12pt;
+        text-align: center;
+        border-left: 4px solid #64748b;
+        margin: 20px 0;
+    }
+    .badge {
+        background: #eff6ff;
+        color: #1d4ed8;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 9.5pt;
+        font-weight: 600;
+        display: inline-block;
+    }
+</style>
+
+
+
+
+```{r memanggil library}
+library(DBI)
+library(odbc)
+library(ggplot2)
+library(scales)
+library(dplyr)
+```
+
+```{r koneksi data}
+kon = dbConnect(odbc(),
+                Driver = "MySQL ODBC 8.0 ANSI Driver",
+                Server = "127.0.0.1", 
+                UID = "root", 
+                PWD = "2025masukuns",
+                Port = 3306, 
+                database = "sakila")
+```
+
+
+```{r daftar tabel di database sakila}
+daftar_tabel <- dbListTables(kon)
+print(daftar_tabel)
+```
+
+```{r melihat daftar kolom yang dibutuhkan}
+#melihat isi kolom tabel kategori
+kolom_kategori <- dbGetQuery(kon, "DESCRIBE category;")
+#melihat isi kolom tabel film
+kolom_film <- dbGetQuery(kon, "DESCRIBE film;")
+#melihat isi kolom tabel inventori
+kolom_inventori <- dbGetQuery(kon, "DESCRIBE inventory;")
+#melihat isi kolom tabel rental
+kolom_rental <- dbGetQuery(kon, "DESCRIBE rental;")
+#melihat isi kolom tabel pembayaran
+kolom_pembayaran <- dbGetQuery(kon, "DESCRIBE payment;")
+print(kolom_kategori)
+print(kolom_film)
+print(kolom_inventori)
+print(kolom_rental) 
+print(kolom_pembayaran)
+```
+
+```{r menggabungan tabel kategori, film, inventori, rental, dan pembayaran}
+gabung_tabel <- "select c.name as kategori, sum(p.amount) as total_revenue
+from payment p
+join rental r on p.rental_id = r.rental_id
+join inventory i on r.inventory_id = i.inventory_id
+join film_category fc on i.film_id = fc.film_id
+join category c on fc.category_id = c.category_id
+group by c.name
+order by total_revenue desc;"
+data <- dbGetQuery(kon, gabung_tabel)
+```
+
+
+```{r membuat visualisasi}
+ggplot(data, aes(x = reorder(kategori, total_revenue), y = total_revenue, fill = total_revenue)) +
+  geom_bar(stat = "identity", alpha = 0.9) +
+  coord_flip() +
+  scale_fill_viridis_c(option = "plasma", labels = dollar_format()) + 
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Kategori Film berdasarkan Total Kontribusi Pendapatan", 
+    subtitle = "Analisis portofoilo produk pada Sakila Database",
+    x = "Kategori Film", 
+    y = "Total Pendapatan ($)", 
+    fill = "Revenue"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14))
+```
+
+# INSIGHT 1: Kategori Film ysng Menghasilkan Uang
+## Deskripsi Insight
+Ingin mengetahui kategori film yang paling menghasilkan uang untuk bisnis rental. Insight ini dilakukan bertujuan untuk mengevaluasi dan memetakan struktur produk pada Sakila Rental. Pendekatan ini dilakukan agar dapat mengklasifikasikan kategori film ke dalam kelompok mesik pencetak uang utama dan kelompok kategori yang kurang produktif. Hasil analisis memberikan landasan untuk mengambil keputusan strategis terkait alokasi anggaran modal dalam pengadaan stok film baru yang lebih efisien. 
+
+## Interpretasi Data
+Terdapat beberapa poin interpretasi, yaitu:
+1. Identifikasi Produk Unggulan
+Visualisasi data menunjukkan bahwa kategori **Sports**, **Sci-Fi**, dan **Animation** menempati peringkat tiga teratas dalam menyumbang pendapatan bisnis. Perputaran uang dan *margin* keuntungan terbesar terkonsentrasi pada *genre* film itu. Dapat dikatakan bahwa *genre* ini memiliki daya tarik pasar yang sangat kuat.
+2. Identifikasi Kategori Lemah
+Terdapat beberapa kategori lemah seperti **Travel**, **Music**, dan **Children** yang berada di posisi terbawah kurva pendapatan. Fenomena ini mengindikasikan bahwa terdapat masalah inventaris yang mengendap. Judul-judul dengan *genre*  ini jarang disewa oleh konsumen sehingga biaya pengadaan lisensi film tidak sebanding dengan perputaran uang yang dihasilkan.
+3. Implikasi dan Rekomendasi Strategis bagi Manajemen
+a. Optimalisasi alokasi anggaran: Manajemen disarankan untuk melakukan efisiensi dengan mengurangi anggaran belanja modal untuk pengadaan film *genre* yang sepi. Anggaran sebaiknya dialokasikan untuk menambah variasi judul baru pada *genre* *premium* demi mencegah hilangnya potensi penjualan.
+b. Strategi Promosi Terarah: 
+Untuk menghabiskan stok film di *genre* bawah yang mengendap di rak toko, manajemen dapat menerapkan strategi *bundling* (misal: sewa 2 film *Sports*, gratis sewa 1 film *Music* ). Hal ini dilakukan untuk meningkatkan volume transaksi tanpa harus memotong harga pokok penyewaan. 
+
+
+```{r pendapatan bulanan dan karakteristik transaksi}
+pendapatan_bulanan <- "select date_format(payment_date, '%Y-%m') as bulan, sum(amount) as total_pendapatan, count(payment_id) as jumlah_transaksi
+from payment
+group by date_format (payment_date, '%Y-%m') 
+order by bulan;"
+tren_pendapatan <- dbGetQuery(kon, pendapatan_bulanan)
+```
+
+
+```{r visualisasi line chart untuk tren pendapatan}
+ggplot(tren_pendapatan, aes(x= bulan, y= total_pendapatan, group = 1)) +
+  geom_line(color = "#2c3e50", size = 1.2) +
+  geom_point(color = "#e74c3c", size = 3) +
+  scale_y_continuous(labels=dollar_format()) +
+  labs(
+    title = "Trem Pertumbuhan Pendapatan Bulanan", 
+    subtitle = "Mendeteksi pola pertumbuhan harian/bulanan bisnis rental ",
+    x = "Periode Bulan", 
+    y = "Total Pendapatan ($)") +
+  theme_light() +
+  theme(plot.title = element_text(face = "bold", color = "#2c3e50"))
+  
+```
+
+# INSIGHT 2: Analisis Tren Longitudinal dan Pola Musiman
+
+## Deskripsi Insight
+Imsight ini bertujuan untuk mendeteksi siklus operasinal bisnis rental. Dapat mengetahui kapan bisnis memasuki masa puncak perputaran uang dan kapan memasuki masa sepi peminat, manajemen dapat beralih dari strategi reaktif menjadi proaktif. Menjadi acuan bagi manajemen dalam mengatur manajemen arus kas serta merancang strategi promosi yang terjadwal. 
+
+## Interpretasi Data
+Insight menghasillkan grafik garis yang terbentuk dari data deret waktu bulanan. Terdapat beberapa poin interpretasi:
+1. Deteksi Volatilitas Eksponensial
+Grafik menunjukkan pergerakan kurva yang volatil dan fluktuatif sepanjang tahun 2005. Terjadi lonjakan pendapatan secara masif mulai dari bulan Mei menuju puncaknya bulan Juli dan Agustus, sebelum akhirnya mengalami penurutnan tajam pada bulan September. Pola ini dapat mengasumsikan bahwa di bulan Juli-Agustus kemungkinan besar bertepatan dengan masa liburan sehingga volume penyewaan film meningkat tajam.
+2. Identifikasi Dampak Masa Sepi
+Penurunan secara dratis terjadi pada bulan Agustus hingga September yang mengindikasikan bahwa bisnis ini rentan terhadap berakhirnya siklus liburan konsumen. Pada bulan September, ketika konsumen kembali beraktivitas dengan normal, penggunaan jasa rental film langusng menurun dratis. Jika dibiarkan, penurunan seperti ini dapat membahayakan stabilitas arus kas operasional toko. 
+3. Implikasi dan rekomendasi strategis bagi manajemen
+a. Strategi perataan arus kas: 
+Manajemen tidak boleh pasif menghadapi penurunan tajam di bulan September. Pada bulan yang diprediksi akan sepi, direkomendasikan untuk meluncurkan progeam promosi terarah, seperti diskon khusus hari kerja atau berlangganan bulanan untuk mengunci loyalitas konsumen agar pendapatan stabil.
+b. Manajemen inventaris dan sumber daya:
+Pada masa puncak seperti bulan Julu dan Agustus, manajemen harus memastikan ketersediaan stok inventaris film berada dalam kondisi maksimal dan mengoptimalkan jumlah staf operasional di toko untuk menangani lonjakan transaksi guna mencegah antrean panjang yang dapat menurunkan kepuasan pelanggan. 
+```{r disconnect}
+dbDisconnect(kon)
+```
+
+
+
